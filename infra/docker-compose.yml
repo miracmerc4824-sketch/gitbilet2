@@ -1,0 +1,365 @@
+# ============================================================
+# ANTIGRAVITY — Docker Compose v2
+# Full infrastructure: API Gateway, Booking, Payment, Notification
+# + Pricing Engine, AI Service (Ollama CUDA), Digital Twin
+# + PostgreSQL, Redis, Kafka, Zookeeper, Elasticsearch, Kibana
+# ============================================================
+
+version: "3.9"
+
+# ── Shared Networks ─────────────────────────────────────────────
+networks:
+  antigravity-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ── Named Volumes ───────────────────────────────────────────────
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  zookeeper-data:
+  elasticsearch-data:
+  ollama-data:
+
+# ── Services ────────────────────────────────────────────────────
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: antigravity
+      POSTGRES_USER: aguser
+      POSTGRES_PASSWORD: agpass_dev
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./postgres/seed_locations.sql:/docker-entrypoint-initdb.d/02-seed-locations.sql:ro
+      - ./postgres/seed_trips.sql:/docker-entrypoint-initdb.d/03-seed-trips.sql:ro
+    command: >
+      postgres
+        -c max_connections=200
+        -c shared_buffers=256MB
+        -c effective_cache_size=1GB
+        -c work_mem=16MB
+        -c checkpoint_completion_target=0.9
+        -c wal_buffers=16MB
+        -c default_statistics_target=100
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aguser -d antigravity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - antigravity-net
+
+  # ── Redis ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ag-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --hz 20
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - antigravity-net
+
+  # ── Zookeeper ────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: ag-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - antigravity-net
+
+  # ── Kafka ────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ag-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
+    networks:
+      - antigravity-net
+
+  # ── Elasticsearch ────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: ag-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=antigravity
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - antigravity-net
+
+  # ── Kibana ────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: ag-kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      KIBANA_SYSTEM_PASSWORD: kibana_dev
+    ports:
+      - "5601:5601"
+    networks:
+      - antigravity-net
+
+  # ── API Gateway ──────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ../backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: ag-gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aguser:agpass_dev@postgres:5432/antigravity
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-antigravity-change-in-production}
+      LOG_LEVEL: INFO
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - antigravity-net
+
+  # ── Booking Service ──────────────────────────────────────────
+  booking-service:
+    build:
+      context: ../backend/booking-service
+      dockerfile: Dockerfile
+    container_name: ag-booking
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aguser:agpass_dev@postgres:5432/antigravity
+      REDIS_URL: redis://redis:6379/1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8001:8001"
+    networks:
+      - antigravity-net
+
+  # ── Payment Service ──────────────────────────────────────────
+  payment-service:
+    build:
+      context: ../backend/payment-service
+      dockerfile: Dockerfile
+    container_name: ag-payment
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aguser:agpass_dev@postgres:5432/antigravity
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PAYMENT_TIMEOUT_SECONDS: 30
+      CIRCUIT_BREAKER_THRESHOLD: 5
+    ports:
+      - "8002:8002"
+    networks:
+      - antigravity-net
+
+  # ── Notification Service ────────────────────────────────────
+  notification-service:
+    build:
+      context: ../backend/notification-service
+      dockerfile: Dockerfile
+    container_name: ag-notification
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_GROUP_ID: notification-consumers
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    ports:
+      - "8003:8003"
+    networks:
+      - antigravity-net
+
+  # ── Frontend (Static File Server) ───────────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: ag-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../frontend:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - antigravity-net
+
+  # ── Ollama ──────────────────────────── (devre dışı — ~700MB image EOF hatası)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ag-ollama
+
+  # ── Pricing Engine (Kafka → Dynamic Pricing) ─────────────────
+  pricing-engine:
+    build:
+      context: ../backend/pricing-engine
+      dockerfile: Dockerfile
+    container_name: ag-pricing
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aguser:agpass_dev@postgres:5432/antigravity
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DEMAND_THRESHOLD: "5"
+      PRICE_INCREASE_MIN: "5"
+      PRICE_INCREASE_MAX: "10"
+    ports:
+      - "8005:8005"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8005/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks:
+      - antigravity-net
+
+  # ── AI Service ──────────────────────── (devre dışı — Ollama'ya bağımlı)
+  # ai-service:
+  #   build:
+  #     context: ../backend/ai-service
+  #   container_name: ag-ai
+
+
+  # ── Digital Twin (Real-time Bus Tracking) ────────────────────
+  digital-twin:
+    build:
+      context: ../backend/digital-twin
+      dockerfile: Dockerfile
+    container_name: ag-twin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aguser:agpass_dev@postgres:5432/antigravity
+    ports:
+      - "8007:8007"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8007/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    networks:
+      - antigravity-net
+

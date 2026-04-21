@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BiletBudur — Biletiniz hazır! Yerçekimine meydan okuma başlıyor." />
+  <title>BiletBudur — Bilet Onaylandı 🎉</title>
+  <link rel="stylesheet" href="css/design-system.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <style>
+    body { background: var(--color-void); overflow-x: hidden; }
+
+    /* Victory aurora */
+    .victory-aurora {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .victory-aurora::before {
+      content: '';
+      position: absolute;
+      width: 900px; height: 900px;
+      background: radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 60%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      filter: blur(60px);
+      animation: blobPulse 3s ease-in-out infinite;
+    }
+
+    .victory-aurora::after {
+      content: '';
+      position: absolute;
+      width: 600px; height: 300px;
+      background: radial-gradient(ellipse, rgba(16,185,129,0.15) 0%, transparent 70%);
+      bottom: 10%; right: 10%;
+      border-radius: 50%;
+      filter: blur(40px);
+    }
+
+    /* Confirmation page */
+    .confirmation-page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: var(--space-8);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    .conf-header {
+      text-align: center;
+      padding: var(--space-12) 0 var(--space-8);
+    }
+
+    .conf-checkmark {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #065f46, var(--accent-success));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto var(--space-6);
+      font-size: 3rem;
+      box-shadow: 0 0 60px rgba(16,185,129,0.4), 0 0 120px rgba(16,185,129,0.15);
+      animation: victoryBurst 0.8s var(--ease-spring) both;
+    }
+
+    .conf-title {
+      font-size: var(--text-4xl);
+      font-weight: var(--weight-black);
+      letter-spacing: -0.03em;
+      margin-bottom: var(--space-3);
+    }
+
+    .conf-subtitle {
+      font-size: var(--text-lg);
+      color: var(--text-secondary);
+    }
+
+    /* Ticket card */
+    .ticket-card {
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: var(--radius-2xl);
+      overflow: hidden;
+      margin-bottom: var(--space-6);
+      box-shadow: 0 0 40px rgba(16,185,129,0.1), var(--shadow-xl);
+      animation: panelSlideIn 0.7s var(--ease-out-quint) 0.3s both;
+      position: relative;
+    }
+
+    /* Ticket top stripe */
+    .ticket-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--blob-purple), var(--accent-success), var(--blob-orange));
+    }
+
+    /* Ticket perforated divider */
+    .ticket-divider {
+      position: relative;
+      height: 1px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--glass-border) 0,
+        var(--glass-border) 8px,
+        transparent 8px,
+        transparent 16px
+      );
+      margin: 0;
+    }
+
+    .ticket-divider::before,
+    .ticket-divider::after {
+      content: '';
+      position: absolute;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--color-void);
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .ticket-divider::before { left: -14px; }
+    .ticket-divider::after  { right: -14px; }
+
+    /* Ticket sections */
+    .ticket-top { padding: var(--space-8); }
+    .ticket-bottom { padding: var(--space-6) var(--space-8); }
+
+    .ticket-route {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-6);
+    }
+
+    .ticket-city {
+      font-size: var(--text-4xl);
+      font-weight: var(--weight-black);
+      letter-spacing: -0.04em;
+    }
+
+    .ticket-city-name {
+      font-size: var(--text-sm);
+      color: var(--text-tertiary);
+      margin-top: var(--space-1);
+    }
+
+    .ticket-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .ticket-arrow-icon {
+      font-size: 2rem;
+      animation: idleHover 3s ease-in-out infinite;
+    }
+
+    .ticket-duration {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+    }
+
+    .ticket-info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+
+    @media (max-width: 600px) {
+      .ticket-info-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .ticket-info-item {}
+
+    .ticket-info-label {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--space-1);
+    }
+
+    .ticket-info-value {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-semibold);
+      color: var(--text-primary);
+    }
+
+    /* Barcode */
+    .barcode-section {
+      display: flex;
+      align-items: center;
+      gap: var(--space-6);
+    }
+
+    .barcode-lines {
+      flex: 1;
+      display: flex;
+      gap: 2px;
+      align-items: stretch;
+      height: 60px;
+    }
+
+    .barcode-bar {
+      background: var(--text-primary);
+      border-radius: 1px;
+      opacity: 0.8;
+    }
+
+    .barcode-number {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      letter-spacing: 0.15em;
+      margin-top: var(--space-2);
+      text-align: center;
+    }
+
+    /* QR placeholder */
+    .qr-placeholder {
+      width: 80px; height: 80px;
+      background: var(--text-primary);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      flex-shrink: 0;
+      padding: 8px;
+    }
+
+    .qr-inner {
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg, var(--color-void) 0, var(--color-void) 4px, transparent 4px, transparent 8px
+      ),
+      repeating-linear-gradient(
+        90deg, var(--color-void) 0, var(--color-void) 4px, transparent 4px, transparent 8px
+      );
+    }
+
+    /* Actions */
+    .conf-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+      animation: pageEnter 0.6s var(--ease-out-quint) 0.6s both;
+    }
+
+    @media (max-width: 600px) { .conf-actions { grid-template-columns: 1fr; } }
+
+    /* Stats row */
+    .conf-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+      animation: pageEnter 0.6s var(--ease-out-quint) 0.7s both;
+    }
+
+    .conf-stat {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      text-align: center;
+    }
+
+    .conf-stat-icon { font-size: 2rem; margin-bottom: var(--space-2); }
+    .conf-stat-value { font-size: var(--text-2xl); font-weight: var(--weight-black); }
+    .conf-stat-label { font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1); }
+
+    /* Confetti */
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    /* ── Digital Wallet Card ── */
+    .wallet-section {
+      margin-bottom: var(--space-6);
+      animation: panelSlideIn 0.7s var(--ease-out-quint) 0.5s both;
+    }
+
+    .wallet-section-title {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-bold);
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--space-4);
+    }
+
+    .wallet-card-container {
+      display: flex;
+      justify-content: center;
+      perspective: 800px;
+    }
+
+    .wallet-card {
+      width: 340px;
+      height: 200px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #1a0533 0%, #2d0f5e 35%, #0f2a5e 70%, #0a3d62 100%);
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(124,107,255,0.3);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transform-style: preserve-3d;
+      transition: transform 0.1s ease;
+      user-select: none;
+    }
+
+    /* Holographic shimmer overlay */
+    .wallet-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        105deg,
+        transparent 20%,
+        rgba(255,255,255,0.04) 30%,
+        rgba(124,107,255,0.1) 40%,
+        rgba(0,229,255,0.08) 50%,
+        rgba(255,107,107,0.06) 60%,
+        transparent 70%
+      );
+      background-size: 200% 200%;
+      animation: holoShimmer 3s linear infinite;
+      border-radius: 20px;
+      pointer-events: none;
+    }
+
+    @keyframes holoShimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Card chip */
+    .card-chip {
+      position: absolute;
+      top: 24px; left: 24px;
+      width: 40px; height: 30px;
+      background: linear-gradient(135deg, #d4a843, #f8d77a, #c9952e);
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .card-chip::before {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border: 1px solid rgba(139,105,20,0.6);
+      border-radius: 3px;
+    }
+
+    /* Card logo */
+    .card-logo {
+      position: absolute;
+      top: 18px; right: 20px;
+      font-size: 1.4rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #7c6bff, #00e5ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Route on card */
+    .card-route {
+      position: absolute;
+      bottom: 56px; left: 24px; right: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .card-route-arrow {
+      font-size: 1rem;
+      opacity: 0.6;
+    }
+
+    /* Card bottom row */
+    .card-bottom {
+      position: absolute;
+      bottom: 20px; left: 24px; right: 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .card-info-label {
+      font-size: 8px; letter-spacing: .08em; text-transform: uppercase;
+      color: rgba(255,255,255,0.4); margin-bottom: 3px;
+    }
+    .card-info-value {
+      font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.85);
+    }
+
+    /* QR on card */
+    #card-qr {
+      width: 52px; height: 52px;
+      background: #fff;
+      border-radius: 6px;
+      padding: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Tilt hint */
+    .tilt-hint {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <!-- Victory aurora -->
+  <div class="victory-aurora"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar" style="position:relative;z-index:10">
+    <a href="dashboard.html" class="navbar__logo">Bilet<span>Budur</span></a>
+    <div class="navbar__links">
+      <a href="dashboard.html" class="btn btn--ghost btn--sm">Ana Sayfa</a>
+      <button class="btn btn--ghost btn--sm" onclick="AG.logout()">Çıkış</button>
+    </div>
+  </nav>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div class="confirmation-page">
+    <!-- Header -->
+    <div class="conf-header">
+      <div class="conf-checkmark">✓</div>
+      <h1 class="conf-title">
+        <span class="text-gradient-purple">Biletiniz Hazır!</span>
+      </h1>
+      <p class="conf-subtitle">Ödeme başarıyla tamamlandı. İyi yolculuklar 🚌</p>
+    </div>
+
+    <!-- Ticket -->
+    <div class="ticket-card" id="ticket-section">
+      <div class="ticket-top">
+        <!-- Route -->
+        <div class="ticket-route">
+          <div>
+            <div class="ticket-city" id="ticket-from">IST</div>
+            <div class="ticket-city-name" id="ticket-from-full">İstanbul</div>
+          </div>
+          <div class="ticket-arrow">
+            <div class="ticket-arrow-icon">🚌</div>
+            <div class="ticket-duration" id="ticket-duration">—</div>
+          </div>
+          <div style="text-align:right">
+            <div class="ticket-city" id="ticket-to">ANK</div>
+            <div class="ticket-city-name" id="ticket-to-full">Ankara</div>
+          </div>
+        </div>
+
+        <!-- Info grid -->
+        <div class="ticket-info-grid">
+          <div class="ticket-info-item">
+            <div class="ticket-info-label">Kalkış</div>
+            <div class="ticket-info-value" id="ticket-departure">—</div>
+          </div>
+          <div class="ticket-info-item">
+            <div class="ticket-info-label">Varış</div>
+            <div class="ticket-info-value" id="ticket-arrival">—</div>
+          </div>
+          <div class="ticket-info-item">
+            <div class="ticket-info-label">Koltuk</div>
+            <div class="ticket-info-value" id="ticket-seat">—</div>
+          </div>
+          <div class="ticket-info-item">
+            <div class="ticket-info-label">Firma</div>
+            <div class="ticket-info-value" id="ticket-company">—</div>
+          </div>
+          <div class="ticket-info-item">
+            <div class="ticket-info-label">Tarih</div>
+            <div class="ticket-info-value" id="ticket-date">—</div>
+          </div>
+          <div class="ticket-info-item">
+            <div class="ticket-info-label">Tutar</div>
+            <div class="ticket-info-value" id="ticket-price" style="color:var(--blob-yellow-glow)">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Perforated divider -->
+      <div class="ticket-divider"></div>
+
+      <!-- Barcode section -->
+      <div class="ticket-bottom">
+        <div style="font-size:var(--text-xs);color:var(--text-tertiary);margin-bottom:var(--space-3);font-weight:var(--weight-semibold);letter-spacing:0.08em;text-transform:uppercase;">
+          Bilet Kodu
+        </div>
+        <div class="barcode-section">
+          <div>
+            <div class="barcode-lines" id="barcode-lines"></div>
+            <div class="barcode-number" id="ticket-no">—</div>
+          </div>
+          <div>
+            <div class="qr-placeholder" title="QR Kod">
+              <div class="qr-inner"></div>
+            </div>
+            <div style="font-size:9px;text-align:center;color:var(--text-tertiary);margin-top:4px;">QR Tara</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-4)">
+          <span class="badge badge--success">✓ Onaylandı</span>
+          <span class="badge badge--purple" id="txn-badge">TXN#—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="conf-actions">
+      <button class="btn btn--primary btn--lg" onclick="downloadTicket()">
+        ⬇️ Bilet İndir (PDF)
+      </button>
+      <button class="btn btn--secondary btn--lg" onclick="shareTicket()">
+        📤 Bilet Paylaş
+      </button>
+      <button class="btn btn--secondary btn--lg" onclick="sendEmail()">
+        📧 E-posta Gönder
+      </button>
+      <a href="dashboard.html" class="btn btn--orange btn--lg" style="text-decoration:none;text-align:center;">
+        🚌 Yeni Sefer Ara
+      </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="conf-stats">
+      <div class="conf-stat">
+        <div class="conf-stat-icon">⚡</div>
+        <div class="conf-stat-value text-gradient-purple">0.8s</div>
+        <div class="conf-stat-label">Rezervasyon Süresi</div>
+      </div>
+      <div class="conf-stat">
+        <div class="conf-stat-icon">🔒</div>
+        <div class="conf-stat-value" style="color:var(--accent-success)">Güvenli</div>
+        <div class="conf-stat-label">256-bit SSL Korumalı</div>
+      </div>
+      <div class="conf-stat">
+        <div class="conf-stat-icon">🎉</div>
+        <div class="conf-stat-value text-gradient-orange">0 ₺</div>
+        <div class="conf-stat-label">Servis Bedeli</div>
+      </div>
+    </div>
+
+    <!-- Digital Wallet Card -->
+    <div class="wallet-section">
+      <div class="wallet-section-title">💳 Dijital Cüzdan Kartı</div>
+      <div class="wallet-card-container">
+        <div id="wallet-card" class="wallet-card">
+          <div class="card-chip"></div>
+          <div class="card-logo">⚡ AG</div>
+
+          <div class="card-route">
+            <span id="wc-from">IST</span>
+            <span class="card-route-arrow">→</span>
+            <span id="wc-to">ANK</span>
+          </div>
+
+          <div class="card-bottom">
+            <div>
+              <div class="card-info-label">Yolcu</div>
+              <div class="card-info-value" id="wc-passenger">—</div>
+              <div class="card-info-label" style="margin-top:6px">Koltuk</div>
+              <div class="card-info-value" id="wc-seat">—</div>
+            </div>
+            <div>
+              <div class="card-info-label" style="text-align:right">Kalkış</div>
+              <div class="card-info-value" id="wc-time">—</div>
+              <div style="margin-top:8px">
+                <canvas id="card-qr"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tilt-hint">↖↗ Fareyi kart üzerinde gezdirerek 3D etkiyi görün</div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <!-- QR Code generator CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    if (!AG.isLoggedIn()) { window.location.href = 'index.html'; }
+
+    const ticketData = JSON.parse(sessionStorage.getItem('ag_ticket') || 'null');
+    const trip = AG.loadSelectedTrip();
+    const seats = AG.loadSeats();
+
+    function cityCode(name) {
+      return name ? name.slice(0, 3).toUpperCase() : '???';
+    }
+
+    function renderTicket() {
+      if (!trip || !seats) return;
+
+      document.getElementById('ticket-from').textContent = cityCode(trip.from);
+      document.getElementById('ticket-from-full').textContent = trip.from;
+      document.getElementById('ticket-to').textContent = cityCode(trip.to);
+      document.getElementById('ticket-to-full').textContent = trip.to;
+      document.getElementById('ticket-departure').textContent = trip.departureTime;
+      document.getElementById('ticket-arrival').textContent = trip.arrivalTime;
+      document.getElementById('ticket-duration').textContent = trip.durationText;
+      document.getElementById('ticket-seat').textContent = seats.seats.join(', ');
+      document.getElementById('ticket-company').textContent = trip.company.logo + ' ' + trip.company.name;
+      document.getElementById('ticket-date').textContent = AG.formatDate(trip.date);
+      document.getElementById('ticket-price').textContent = AG.formatPrice(seats.total);
+
+      const ticketNo = ticketData?.ticket?.ticketNo || ('AG' + Date.now().toString().slice(-8));
+      document.getElementById('ticket-no').textContent = ticketNo;
+
+      const txn = ticketData?.transactionId || 'TXN' + Date.now().toString().slice(-10);
+      document.getElementById('txn-badge').textContent = txn;
+
+      renderBarcode(ticketNo);
+      renderWalletCard(ticketNo);
+    }
+
+    function renderBarcode(code) {
+      const container = document.getElementById('barcode-lines');
+      container.innerHTML = '';
+      const pattern = code.split('').flatMap(c =>
+        [c.charCodeAt(0) % 4 + 1, c.charCodeAt(0) % 3 + 1]
+      );
+      pattern.slice(0, 60).forEach((w, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'barcode-bar';
+        bar.style.cssText = `
+          width: ${w}px;
+          flex-shrink: 0;
+          height: 100%;
+          opacity: ${0.5 + (i % 3) * 0.15};
+        `;
+        container.appendChild(bar);
+      });
+    }
+
+    function renderWalletCard(ticketNo) {
+      if (!trip) return;
+      // Route
+      document.getElementById('wc-from').textContent = cityCode(trip.from);
+      document.getElementById('wc-to').textContent   = cityCode(trip.to);
+      // Passenger
+      const user = AG.getCurrentUser();
+      document.getElementById('wc-passenger').textContent = user?.name || 'Yolcu';
+      document.getElementById('wc-seat').textContent = seats?.seats?.join(', ') || '—';
+      document.getElementById('wc-time').textContent = trip.departureTime || '—';
+
+      // Dynamic QR Code
+      const qrData = JSON.stringify({
+        ticket: ticketNo,
+        from: trip.from,
+        to: trip.to,
+        seat: seats?.seats,
+        ts: Date.now(),
+      });
+
+      try {
+        const canvas = document.getElementById('card-qr');
+        new QRCode(canvas, {
+          text: qrData,
+          width: 46, height: 46,
+          colorDark: '#1a0533',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+      } catch(e) {/* QRCode lib may not be loaded yet */}
+
+      // 3D Tilt Effect
+      initTilt(document.getElementById('wallet-card'));
+    }
+
+    function initTilt(card) {
+      if (!card) return;
+      const MAX_TILT = 18;
+      const MAX_GLOW = 30;
+
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const cx = rect.left + rect.width  / 2;
+        const cy = rect.top  + rect.height / 2;
+        const dx = (e.clientX - cx) / (rect.width  / 2);
+        const dy = (e.clientY - cy) / (rect.height / 2);
+
+        const rotY =  dx * MAX_TILT;
+        const rotX = -dy * MAX_TILT;
+
+        card.style.transform = `
+          perspective(800px)
+          rotateX(${rotX}deg)
+          rotateY(${rotY}deg)
+          scale(1.04)
+        `;
+        card.style.boxShadow = `
+          ${-dx * MAX_GLOW}px ${-dy * MAX_GLOW}px 40px rgba(124,107,255,0.4),
+          0 20px 60px rgba(0,0,0,0.6)
+        `;
+      });
+
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateX(0) rotateY(0) scale(1)';
+        card.style.boxShadow = '0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(124,107,255,0.3)';
+      });
+
+      // Touch tilt (mobile)
+      card.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        const rect = card.getBoundingClientRect();
+        const dx = (touch.clientX - rect.left - rect.width  / 2) / (rect.width  / 2);
+        const dy = (touch.clientY - rect.top  - rect.height / 2) / (rect.height / 2);
+        card.style.transform = `perspective(800px) rotateX(${-dy*10}deg) rotateY(${dx*10}deg) scale(1.02)`;
+      }, { passive: true });
+
+      card.addEventListener('touchend', () => {
+        card.style.transform = 'perspective(800px) rotateX(0) rotateY(0) scale(1)';
+      });
+    }
+
+    function downloadTicket() {
+      showToast('🧾 PDF indiriliyor... (Simülasyon)', 'success');
+    }
+
+    function shareTicket() {
+      if (navigator.share) {
+        navigator.share({
+          title: 'BiletBudur Biletim',
+          text: `${trip.from} → ${trip.to} biletim hazır! ${trip.departureTime} kalkış.`,
+          url: window.location.href
+        });
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        showToast('📋 Bilet linki kopyalandı!', 'success');
+      }
+    }
+
+    function sendEmail() {
+      const user = AG.getCurrentUser();
+      showToast(`📧 Bilet ${user?.email || 'e-postanıza'} gönderildi`, 'success');
+    }
+
+    function showToast(msg, type = 'info') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast toast--${type}`;
+      t.innerHTML = `<span>${msg}</span>`;
+      c.appendChild(t);
+      setTimeout(() => {
+        t.style.animation = 'toastSlideOut 0.3s ease forwards';
+        setTimeout(() => t.remove(), 350);
+      }, 3500);
+    }
+
+    /* Confetti burst */
+    function launchConfetti() {
+      const colors = ['#7c3aed','#f97316','#eab308','#10b981','#3b82f6','#ec4899','#a855f7'];
+      for (let i = 0; i < 80; i++) {
+        const conf = document.createElement('div');
+        const angle = Math.random() * 360;
+        const dist = 150 + Math.random() * 300;
+        const size = 6 + Math.random() * 12;
+        conf.style.cssText = `
+          position: fixed;
+          width: ${size}px;
+          height: ${size * 0.4}px;
+          background: ${colors[Math.floor(Math.random() * colors.length)]};
+          border-radius: 2px;
+          pointer-events: none;
+          z-index: 9999;
+          left: 50%;
+          top: 30%;
+          --tx: ${Math.cos(angle * Math.PI / 180) * dist}px;
+          --ty: ${Math.sin(angle * Math.PI / 180) * dist}px;
+          animation: confettiPop ${1 + Math.random() * 1}s ease-out forwards;
+          animation-delay: ${Math.random() * 400}ms;
+        `;
+        document.body.appendChild(conf);
+        setTimeout(() => conf.remove(), 2000);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTicket();
+      setTimeout(launchConfetti, 300);
+      setTimeout(launchConfetti, 800);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# ──────────────────────────────────────────────
+# ANTIGRAVITY — API Gateway Requirements
+# ──────────────────────────────────────────────
+
+# Core
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic[email]==2.7.1
+python-multipart==0.0.9
+httpx==0.27.0
+python-dotenv==1.0.1
+
+# Auth (PyJWT — matches import jwt usage in auth.py)
+PyJWT==2.8.0
+passlib[bcrypt]==1.7.4
+
+# DB — required in Docker / full-stack mode
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.29
+
+# Messaging & Cache — required in Docker mode
+aioredis==2.0.1

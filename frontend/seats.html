@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BiletBudur — 3D Koltuk Seçimi. Otobüs içinde gez, koltuğunu seç." />
+  <title>BiletBudur — Koltuk Seç</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/design-system.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <style>
+    body { background: var(--color-void); overflow-x: hidden; }
+
+    /* ── Steps Bar ── */
+    .page-steps { padding: var(--space-4) var(--space-8); display:flex; align-items:center; max-width:600px; margin:0 auto; }
+
+    /* ── View Toggle ── */
+    .view-toggle-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 var(--space-4);
+      max-width: 1200px; margin: 0 auto var(--space-4);
+      flex-wrap: wrap;
+    }
+    .view-toggle-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04); color: var(--text-secondary);
+      cursor: pointer; font-family: var(--font-primary); font-size: var(--text-sm);
+      font-weight: var(--weight-semibold); transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .view-toggle-btn.active {
+      background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(79,70,229,0.15));
+      border-color: rgba(124,58,237,0.5);
+      color: var(--blob-purple-light);
+      box-shadow: 0 0 20px rgba(124,58,237,0.25);
+    }
+    .view-hint {
+      font-size: 0.75rem; color: var(--text-tertiary);
+      margin-left: auto;
+    }
+    @media (max-width: 600px) { .view-hint { display: none; } }
+
+    /* ── 3D View Container ── */
+    #three-d-view {
+      max-width: 1200px; margin: 0 auto var(--space-6);
+      padding: 0 var(--space-4);
+    }
+    #three-d-frame {
+      width: 100%; height: 560px;
+      border-radius: 20px;
+      border: 1px solid rgba(124,58,237,0.25);
+      background: radial-gradient(ellipse at center, #0d0f1e 0%, #07080f 100%);
+      box-shadow: 0 0 40px rgba(124,58,237,0.15), 0 20px 60px rgba(0,0,0,0.5);
+      position: relative; overflow: hidden;
+    }
+    #three-d-frame iframe {
+      width: 100%; height: 100%; border: none;
+    }
+    .three-d-hint {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.5); font-size: 0.74rem;
+      padding: 6px 16px; border-radius: 20px; white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* ── 2D View ── */
+    .seats-page {
+      max-width: 1200px; margin: 0 auto;
+      padding: var(--space-4) var(--space-8) var(--space-20);
+      display: grid; grid-template-columns: 1fr 380px;
+      gap: var(--space-6); align-items: start;
+    }
+    @media (max-width: 900px) {
+      .seats-page { grid-template-columns: 1fr; padding: var(--space-4); }
+    }
+
+    /* Trip Header */
+    .trip-header-card {
+      background: var(--glass-bg); backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl); padding: var(--space-6);
+      margin-bottom: var(--space-6); position: relative; overflow: hidden;
+    }
+    .trip-header-card::before {
+      content: ''; position: absolute; top:0; left:0; right:0; height:2px;
+      background: linear-gradient(90deg, var(--blob-purple), var(--blob-orange), var(--blob-yellow));
+    }
+
+    /* Seat map section */
+    .seat-section {
+      background: var(--glass-bg); backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl); padding: var(--space-6);
+    }
+    .seat-section-title { font-size: var(--text-lg); font-weight: var(--weight-bold); margin-bottom: var(--space-2); }
+    .seat-section-subtitle { font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-6); }
+
+    /* Legend */
+    .seat-legend { display: flex; gap: var(--space-5); margin-bottom: var(--space-6); flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-secondary); }
+    .legend-dot { width:20px; height:20px; border-radius: var(--radius-sm); border:1px solid; }
+    .legend-dot--available { background: rgba(0,229,155,0.1); border-color: #00e59b; }
+    .legend-dot--selected  { background: linear-gradient(135deg, var(--blob-purple), var(--blob-purple-glow)); border-color: var(--blob-purple-light); }
+    .legend-dot--occupied  { background: rgba(255,77,109,0.1); border-color: #ff4d6d; opacity: 0.6; }
+    .legend-dot--female    { background: rgba(255,143,200,0.15); border-color: #ff8fc8; }
+
+    /* Bus front */
+    .bus-front {
+      width:100%; max-width:300px; margin: 0 auto;
+      background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border);
+      border-radius: 50% 50% var(--radius-xl) var(--radius-xl) / 20% 20% var(--radius-xl) var(--radius-xl);
+      padding: var(--space-4) var(--space-4) var(--space-2); margin-bottom: var(--space-4);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .bus-windshield { flex:1; height:30px; background: rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,0.2); border-radius: var(--radius-md); margin: 0 var(--space-4); }
+    .bus-mirror { width:20px; height:30px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.05); border:1px solid var(--glass-border); }
+
+    /* Sidebar */
+    .sidebar { display:flex; flex-direction:column; gap: var(--space-4); position:sticky; top:80px; }
+    .summary-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border:1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-6); }
+    .summary-title { font-size: var(--text-lg); font-weight: var(--weight-bold); margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom:1px solid var(--glass-border); }
+    .info-card { background: rgba(124,58,237,0.05); border:1px solid rgba(124,58,237,0.15); border-radius: var(--radius-lg); padding: var(--space-4); font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-relaxed); }
+    .info-card strong { color: var(--blob-purple-light); }
+
+    /* Safety Match section */
+    .safety-match-card {
+      background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(0,229,255,0.05));
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+    }
+    .safety-match-title {
+      font-size: var(--text-sm); font-weight: var(--weight-bold);
+      color: var(--blob-purple-light); margin-bottom: var(--space-3);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .match-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .match-chip {
+      padding: 5px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3);
+      color: var(--blob-purple-light); cursor: pointer; transition: all 0.2s;
+    }
+    .match-chip:hover { background: rgba(124,58,237,0.3); }
+    .match-chip.active { background: var(--blob-purple); color: #fff; border-color: transparent; }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="dashboard.html" class="navbar__logo">Bilet<span>Budur</span></a>
+    <div class="navbar__links">
+      <a href="dashboard.html" class="btn btn--ghost btn--sm">← Geri Dön</a>
+      <button class="btn btn--ghost btn--sm" onclick="AG.logout()">Çıkış</button>
+    </div>
+  </nav>
+
+  <!-- Steps -->
+  <div class="page-steps">
+    <div class="steps">
+      <div class="step step--done">
+        <div class="step__number">✓</div>
+        <div class="step__label">Sefer</div>
+      </div>
+      <div style="flex:1;height:1px;background:var(--blob-purple);margin:0 0.5rem;"></div>
+      <div class="step step--active">
+        <div class="step__number">2</div>
+        <div class="step__label">Koltuk</div>
+      </div>
+      <div style="flex:1;height:1px;background:var(--glass-border);margin:0 0.5rem;"></div>
+      <div class="step">
+        <div class="step__number">3</div>
+        <div class="step__label">Ödeme</div>
+      </div>
+      <div style="flex:1;height:1px;background:var(--glass-border);margin:0 0.5rem;"></div>
+      <div class="step">
+        <div class="step__number">4</div>
+        <div class="step__label">Onay</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- 3D / 2D Toggle -->
+  <div class="view-toggle-bar">
+    <button class="view-toggle-btn active" id="btn-3d" onclick="setView('3d')">
+      🎮 3D Görünüm
+    </button>
+    <button class="view-toggle-btn" id="btn-2d" onclick="setView('2d')">
+      📋 2D Plan
+    </button>
+    <span class="view-hint">🖱️ Sürükle: döndür &bull; Kaydır: zoom &bull; Tıkla: koltuk seç</span>
+  </div>
+
+  <!-- ═══ 3D VIEW ═══ -->
+  <div id="three-d-view">
+    <div id="three-d-frame">
+      <iframe id="seat-3d-iframe"
+        src="/seats-3d/"
+        title="3D Koltuk Seçimi"
+        allowfullscreen
+        loading="eager"
+      ></iframe>
+      <div class="three-d-hint">🖱️ Sürükle: döndür &bull; Kaydır: zoom &bull; Sol tıkla: koltuk seç</div>
+    </div>
+  </div>
+
+  <!-- ═══ 2D VIEW ═══ -->
+  <div class="seats-page" id="two-d-view" style="display:none">
+    <!-- Left: Seat Map -->
+    <div>
+      <!-- Trip header -->
+      <div class="trip-header-card" id="trip-header">
+        <div style="color:var(--text-tertiary);font-size:var(--text-sm)">Yükleniyor...</div>
+      </div>
+
+      <!-- Seat map -->
+      <div class="seat-section">
+        <h2 class="seat-section-title">Koltuk Seçimi</h2>
+        <p class="seat-section-subtitle">Otobüs planından koltuk seçin. Maks. <span id="max-pass">1</span> koltuk seçebilirsiniz.</p>
+
+        <!-- Legend -->
+        <div class="seat-legend">
+          <div class="legend-item"><div class="legend-dot legend-dot--available"></div><span>Boş</span></div>
+          <div class="legend-item"><div class="legend-dot legend-dot--selected"></div><span>Seçildi</span></div>
+          <div class="legend-item"><div class="legend-dot legend-dot--occupied"></div><span>Dolu</span></div>
+          <div class="legend-item"><div class="legend-dot legend-dot--female"></div><span>Kadın</span></div>
+        </div>
+
+        <!-- Bus front -->
+        <div class="bus-front">
+          <div class="bus-mirror"></div>
+          <div class="bus-windshield"></div>
+          <div class="bus-mirror"></div>
+        </div>
+
+        <!-- Seat map -->
+        <div id="seat-map"></div>
+      </div>
+    </div>
+
+    <!-- Right: Sidebar -->
+    <div class="sidebar">
+      <!-- Summary -->
+      <div class="summary-card">
+        <div class="summary-title">Seçim Özeti</div>
+        <div id="seat-summary">
+          <div style="text-align:center;color:var(--text-tertiary);padding:var(--space-6);font-size:var(--text-sm)">
+            Koltuk seçmek için haritaya tıklayın
+          </div>
+        </div>
+        <button class="btn btn--primary btn--lg btn--full" id="continue-btn"
+          style="margin-top:var(--space-4);opacity:0.5;" disabled>
+          Devam Et →
+        </button>
+      </div>
+
+      <!-- Safety Match -->
+      <div class="safety-match-card">
+        <div class="safety-match-title">
+          🤝 Safety-Match
+          <span style="font-size:0.65rem;font-weight:400;color:var(--text-tertiary);background:rgba(124,58,237,0.1);padding:2px 8px;border-radius:10px;">BETA</span>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.4;">
+          İlgi alanı seçin, benzer yolcuların yanına önerelim:
+        </p>
+        <div class="match-chips">
+          <div class="match-chip" onclick="toggleMatch(this,'yazılım')">💻 Yazılım</div>
+          <div class="match-chip" onclick="toggleMatch(this,'sanat')">🎨 Sanat</div>
+          <div class="match-chip" onclick="toggleMatch(this,'müzik')">🎵 Müzik</div>
+          <div class="match-chip" onclick="toggleMatch(this,'spor')">⚽ Spor</div>
+          <div class="match-chip" onclick="toggleMatch(this,'seyahat')">✈️ Seyahat</div>
+          <div class="match-chip" onclick="toggleMatch(this,'kitap')">📚 Kitap</div>
+        </div>
+        <div id="match-suggestion" style="display:none;margin-top:10px;font-size:0.75rem;color:var(--blob-purple-light);"></div>
+      </div>
+
+      <!-- Info cards -->
+      <div class="info-card">
+        💡 <strong>Bilgi:</strong> Seçtiğiniz koltuk <strong>5 dakika</strong> süreyle rezerve edilir.
+        Bu süre içinde ödeme işlemini tamamlayın.
+      </div>
+      <div class="info-card">
+        🔒 <strong>Güvenli Rezervasyon:</strong> Koltuk seçiminiz gerçek zamanlı olarak kilitlenir.
+        Race condition koruması aktif.
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/seats.js"></script>
+  <script src="js/weather-engine.js"></script>
+  <script src="js/ai-chat.js"></script>
+  <script>
+    if (!AG.isLoggedIn()) { window.location.href = 'index.html'; }
+
+    const search = AG.loadSearch();
+    if (search) {
+      const maxEl = document.getElementById('max-pass');
+      if (maxEl) maxEl.textContent = search.pass || '1';
+    }
+
+    /* ── View toggle ── */
+    function setView(mode) {
+      document.getElementById('three-d-view').style.display = mode === '3d' ? 'block' : 'none';
+      document.getElementById('two-d-view').style.display   = mode === '2d' ? 'grid'  : 'none';
+      document.getElementById('btn-3d').classList.toggle('active', mode === '3d');
+      document.getElementById('btn-2d').classList.toggle('active', mode === '2d');
+    }
+
+    /* ── Safety-Match chips ── */
+    const selectedInterests = [];
+    function toggleMatch(el, topic) {
+      const idx = selectedInterests.indexOf(topic);
+      if (idx > -1) {
+        selectedInterests.splice(idx, 1);
+        el.classList.remove('active');
+      } else {
+        selectedInterests.push(topic);
+        el.classList.add('active');
+      }
+      const sugg = document.getElementById('match-suggestion');
+      if (selectedInterests.length > 0) {
+        const matched = [7, 14, 21, 28].slice(0, selectedInterests.length);
+        sugg.innerHTML = `✨ ${selectedInterests.join(', ')} ilginize yakın: <strong>Koltuk ${matched.join(', ')}</strong> öneriliyor`;
+        sugg.style.display = 'block';
+      } else {
+        sugg.style.display = 'none';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new SeatEngine();
+    });
+  </script>
+</body>
+</html>
